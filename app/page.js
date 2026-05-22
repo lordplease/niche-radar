@@ -2,7 +2,7 @@
 import { useState } from "react";
 
 const callClaude = async ({ system, messages, tools, max_tokens = 4000 }) => {
-  const body = { model: "claude-3-5-sonnet-latest", max_tokens, system, messages };
+  const body = { model: "claude-sonnet-4-6", max_tokens, system, messages };
   if (tools) body.tools = tools;
   const res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) { const e = await res.text(); console.error("API Error:", e); throw new Error("API call failed"); }
