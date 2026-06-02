@@ -198,11 +198,13 @@ export default function Home() {
         setLd(false);setSprintPhase(null);return;
       }
 
-      addLog("Research complete. Found product opportunities.");
-      addLog("Waiting for rate limit cooldown (30s)...");
+      addLog("Research complete. Cooling down for rate limit (60s)...");
 
-      // Wait 30 seconds to avoid rate limit between Phase 1 and Phase 2
-      await new Promise(r => setTimeout(r, 30000));
+      // Wait 60 seconds to clear the per-minute rate limit window
+      for(let i=60;i>0;i-=10){
+        addLog(`Resuming in ${i}s...`);
+        await new Promise(r=>setTimeout(r,10000));
+      }
 
       addLog("Formatting into structured analysis...");
 
@@ -220,8 +222,8 @@ export default function Home() {
 
       let formatted;
       try { formatted = await doFormat(); } catch(retryErr) {
-        addLog("Rate limited — retrying in 30s...");
-        await new Promise(r => setTimeout(r, 30000));
+        addLog("Rate limited — retrying in 60s...");
+        await new Promise(r => setTimeout(r, 60000));
         formatted = await doFormat();
       }
 
