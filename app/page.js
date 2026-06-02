@@ -185,9 +185,9 @@ export default function Home() {
 
       const research = await callClaude({
         system:SPRINT_SYS,
-        messages:[{role:"user",content:`Run a research sprint for: ${SPRINT_CATS[cat]||cat}\n\nRegion: ${reg.toUpperCase()}\n${cp?"Additional filters: "+cp+"\n":""}Find 4-6 real product opportunities with weak UK branded competition. Do thorough web searches — at least 6-8 searches. Only recommend products backed by real search results.`}],
+        messages:[{role:"user",content:`Run a research sprint for: ${SPRINT_CATS[cat]||cat}\n\nRegion: ${reg.toUpperCase()}\n${cp?"Additional filters: "+cp+"\n":""}Find 3-4 real product opportunities with weak UK branded competition. Do 5-6 web searches. Keep descriptions concise — product name, sourcing price, UK competitors found, gap assessment, confidence score. No essays.`}],
         tools:[{type:"web_search_20250305",name:"web_search"}],
-        max_tokens:4000
+        max_tokens:3000
       });
 
       const researchText = extractText(research);
@@ -199,14 +199,19 @@ export default function Home() {
       }
 
       addLog("Research complete. Found product opportunities.");
+      addLog("Waiting for rate limit cooldown...");
+
+      // Wait 15 seconds to avoid rate limit between Phase 1 and Phase 2
+      await new Promise(r => setTimeout(r, 15000));
+
       addLog("Formatting into structured analysis...");
 
       // Phase 2: Format research into niche JSON (truncate to avoid rate limit)
-      const trimmed = researchText.length > 6000 ? researchText.substring(0, 6000) + "\n\n[TRUNCATED — use available data]" : researchText;
+      const trimmed = researchText.length > 4000 ? researchText.substring(0, 4000) + "\n\n[TRUNCATED — use available data]" : researchText;
       setSprintPhase("analyzing");
       const formatted = await callClaude({
         system:`Format research into JSON. Return ONLY: {"niches":[...]} Each niche needs: name, tagline, heroProduct, sourcing (platforms, searchTerms, estimatedProductCostGBP, estimatedShippingToUKGBP, estimatedShippingDays, moqForWhiteLabel, whitelabelFeasibility, packagingCustomisation), unitEconomics (retailPriceGBP, productCostGBP, shippingToUKGBP, totalCOGS, shopifyTransactionFee=price*0.03, paymentProcessingFee=price*0.029+0.10, grossProfitPerUnit, grossMarginPercent, estimatedCPAatBreakeven=grossProfit, targetCPA=grossProfit*0.5, netProfitPerUnitAfterAds, netMarginAfterAds, breakEvenROAS, targetROAS, monthlyRevenueAt5OrdersPerDay=price*150, monthlyProfitAt5OrdersPerDay=netProfit*150, subscriptionLTV12Months=price*12), subscriptionAngle, problem, whyNow, audience, metaAdAngle, emotionalDriver, competitors, brandingOpportunity, contentFlywheel, moat, fastMVP, longTermVision, scores (demand, competitionWeakness, brandingPotential, profitability, virality, retention, scalability, communityPotential, seoOpportunity, defensibility — each {score:0-10,reason:"..."}), launchChecklist (solvesRealProblem, profitMarginGreenZone, lightweight, upsellPotential, notSeasonal, validatedNotSaturated — each {pass:bool,reason:"..."}), brandIdeas (names[3], positioning, visualDirection, messagingStrategy, contentPillars[3]). Use REAL data from research. No markdown. No backticks.`,
-        max_tokens:12000,
+        max_tokens:8000,
         messages:[{role:"user",content:`Convert this research into niche JSON. Use real prices and competitor data found. Be strict on launchChecklist — fail criteria that aren't clearly met.\n\n${trimmed}`}]
       });
 
