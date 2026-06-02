@@ -199,21 +199,31 @@ export default function Home() {
       }
 
       addLog("Research complete. Found product opportunities.");
-      addLog("Waiting for rate limit cooldown...");
+      addLog("Waiting for rate limit cooldown (30s)...");
 
-      // Wait 15 seconds to avoid rate limit between Phase 1 and Phase 2
-      await new Promise(r => setTimeout(r, 15000));
+      // Wait 30 seconds to avoid rate limit between Phase 1 and Phase 2
+      await new Promise(r => setTimeout(r, 30000));
 
       addLog("Formatting into structured analysis...");
 
       // Phase 2: Format research into niche JSON (truncate to avoid rate limit)
       const trimmed = researchText.length > 4000 ? researchText.substring(0, 4000) + "\n\n[TRUNCATED — use available data]" : researchText;
       setSprintPhase("analyzing");
-      const formatted = await callClaude({
-        system:`Format research into JSON. Return ONLY: {"niches":[...]} Each niche needs: name, tagline, heroProduct, sourcing (platforms, searchTerms, estimatedProductCostGBP, estimatedShippingToUKGBP, estimatedShippingDays, moqForWhiteLabel, whitelabelFeasibility, packagingCustomisation), unitEconomics (retailPriceGBP, productCostGBP, shippingToUKGBP, totalCOGS, shopifyTransactionFee=price*0.03, paymentProcessingFee=price*0.029+0.10, grossProfitPerUnit, grossMarginPercent, estimatedCPAatBreakeven=grossProfit, targetCPA=grossProfit*0.5, netProfitPerUnitAfterAds, netMarginAfterAds, breakEvenROAS, targetROAS, monthlyRevenueAt5OrdersPerDay=price*150, monthlyProfitAt5OrdersPerDay=netProfit*150, subscriptionLTV12Months=price*12), subscriptionAngle, problem, whyNow, audience, metaAdAngle, emotionalDriver, competitors, brandingOpportunity, contentFlywheel, moat, fastMVP, longTermVision, scores (demand, competitionWeakness, brandingPotential, profitability, virality, retention, scalability, communityPotential, seoOpportunity, defensibility — each {score:0-10,reason:"..."}), launchChecklist (solvesRealProblem, profitMarginGreenZone, lightweight, upsellPotential, notSeasonal, validatedNotSaturated — each {pass:bool,reason:"..."}), brandIdeas (names[3], positioning, visualDirection, messagingStrategy, contentPillars[3]). Use REAL data from research. No markdown. No backticks.`,
-        max_tokens:8000,
-        messages:[{role:"user",content:`Convert this research into niche JSON. Use real prices and competitor data found. Be strict on launchChecklist — fail criteria that aren't clearly met.\n\n${trimmed}`}]
-      });
+      
+      const doFormat = async () => {
+        return await callClaude({
+          system:`Format research into JSON. Return ONLY: {"niches":[...]} Each niche: name, tagline, heroProduct, sourcing{platforms,searchTerms,estimatedProductCostGBP,estimatedShippingToUKGBP,estimatedShippingDays,moqForWhiteLabel,whitelabelFeasibility,packagingCustomisation}, unitEconomics{retailPriceGBP,productCostGBP,shippingToUKGBP,totalCOGS,shopifyTransactionFee,paymentProcessingFee,grossProfitPerUnit,grossMarginPercent,estimatedCPAatBreakeven,targetCPA,netProfitPerUnitAfterAds,netMarginAfterAds,breakEvenROAS,targetROAS,monthlyRevenueAt5OrdersPerDay,monthlyProfitAt5OrdersPerDay,subscriptionLTV12Months}, subscriptionAngle,problem,whyNow,audience,metaAdAngle,emotionalDriver,competitors,brandingOpportunity,contentFlywheel,moat,fastMVP,longTermVision, scores{demand,competitionWeakness,brandingPotential,profitability,virality,retention,scalability,communityPotential,seoOpportunity,defensibility each{score:0-10,reason}}, launchChecklist{solvesRealProblem,profitMarginGreenZone,lightweight,upsellPotential,notSeasonal,validatedNotSaturated each{pass:bool,reason}}, brandIdeas{names[3],positioning,visualDirection,messagingStrategy,contentPillars[3]}. Calculate: COGS=product+shipping, shopifyFee=price*0.03, stripeFee=price*0.029+0.10, grossProfit=price-COGS-fees, targetCPA=grossProfit*0.5. No markdown no backticks.`,
+          max_tokens:8000,
+          messages:[{role:"user",content:`Convert to niche JSON. Be strict on launchChecklist.\n\n${trimmed}`}]
+        });
+      };
+
+      let formatted;
+      try { formatted = await doFormat(); } catch(retryErr) {
+        addLog("Rate limited — retrying in 30s...");
+        await new Promise(r => setTimeout(r, 30000));
+        formatted = await doFormat();
+      }
 
       const fmtText = extractText(formatted);
       const parsed = JSON.parse(fmtText.replace(/```json|```/g,"").trim());
